@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>我的导航</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #f5f4f0;
+      --surface:     #ffffff;
+      --border:      #dddad4;
+      --accent:      #5a7a4a;
+      --accent2:     #3a6ea8;
+      --accent-local:#7a5a2a;
+      --text:        #2a2825;
+      --muted:       #8a8680;
+      --danger:      #c0392b;
+      --radius:      10px;
+    }
+
+    body {
+      font-family: 'Noto Serif SC', serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 20px 80px;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 20% 10%, rgba(90,122,74,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 80% 80%, rgba(58,110,168,0.06) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .container { max-width: 720px; margin: 0 auto; position: relative; z-index: 1; }
+
+    /* 标题 */
+    header { margin-bottom: 28px; }
+    header h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: .04em; color: var(--accent); }
+    header p  { margin-top: 5px; color: var(--muted); font-size: .85rem; font-family: 'JetBrains Mono', monospace; }
+
+    /* 标签页 */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .tab-btn {
+      padding: 10px 24px;
+      font-family: 'Noto Serif SC', serif;
+      font-size: .92rem; font-weight: 600;
+      color: var(--muted);
+      background: transparent; border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 7px;
+      transition: color .2s, border-color .2s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active       { color: var(--accent);       border-bottom-color: var(--accent); }
+    .tab-btn.local.active { color: var(--accent-local); border-bottom-color: var(--accent-local); }
+
+    .tab-page { display: none; }
+    .tab-page.active { display: block; }
+
+    /* 工具栏 */
+    .toolbar { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 22px; }
+    .btn-tool {
+      font-size: .75rem; font-family: 'JetBrains Mono', monospace;
+      padding: 5px 12px; border-radius: 5px;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      cursor: pointer; transition: color .2s, border-color .2s;
+    }
+    .btn-tool:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* 分组 */
+    .group { margin-bottom: 32px; transition: opacity .2s; }
+    .group.group-dragging { opacity: .35; }
+    .group.group-drag-over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius); }
+    .group-drag-handle {
+      color: var(--muted); cursor: grab; font-size: 1rem;
+      padding: 2px 4px; border-radius: 4px; flex-shrink: 0;
+      transition: color .2s; user-select: none; line-height: 1;
+    }
+    .group-drag-handle:hover  { color: var(--accent); }
+    .group-drag-handle:active { cursor: grabbing; }
+    .group-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .group-title {
+      font-size: .75rem; font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .12em; text-transform: uppercase;
+      color: var(--muted); flex-shrink: 0;
+      cursor: pointer; border-radius: 4px; padding: 2px 6px;
+      transition: background .15s, color .15s;
+    }
+    .group-title:hover       { background: rgba(90,122,74,.1);  color: var(--accent); }
+    .group-title.local:hover { background: rgba(122,90,42,.1);  color: var(--accent-local); }
+    .group-title-input {
+      font-size: .75rem; font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .12em;
+      color: var(--accent); background: rgba(90,122,74,.08);
+      border: 1px solid var(--accent); border-radius: 4px;
+      padding: 1px 6px; outline: none;
+      min-width: 60px; max-width: 200px;
+    }
+    .group-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* 卡片 */
+    .link-list { display: flex; flex-direction: column; gap: 8px; }
+    .link-item {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+      transition: border-color .2s, transform .15s, box-shadow .2s, opacity .2s;
+      animation: fadeIn .3s ease both; cursor: default;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .link-item:hover            { border-color: var(--accent);       transform: translateX(3px); box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+    .link-item.local-item:hover { border-color: var(--accent-local); }
+    .link-item.dragging { opacity: .35; }
+    .link-item.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(90,122,74,.25); transform: translateX(3px); }
+
+    .drag-handle {
+      color: var(--muted); cursor: grab; font-size: 1.1rem; line-height: 1;
+      padding: 2px; border-radius: 4px; flex-shrink: 0;
+      transition: color .2s; user-select: none;
+    }
+    .drag-handle:hover  { color: var(--accent); }
+    .drag-handle:active { cursor: grabbing; }
+
+    .link-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent); flex-shrink: 0;
+      box-shadow: 0 0 8px rgba(90,122,74,.3);
+    }
+    .link-dot.local { background: var(--accent-local); box-shadow: 0 0 8px rgba(122,90,42,.3); }
+
+    .link-info { flex: 1; min-width: 0; }
+    .link-name {
+      font-size: .95rem; font-weight: 600; color: var(--text);
+      margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .link-url a {
+      font-family: 'JetBrains Mono', monospace; font-size: .78rem;
+      color: var(--accent2); text-decoration: none; opacity: .85;
+      transition: opacity .2s; word-break: break-all;
+    }
+    .link-url a.local-link { color: var(--accent-local); }
+    .link-url a:hover { opacity: 1; text-decoration: underline; }
+
+    .link-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-icon {
+      width: 30px; height: 30px; border-radius: 6px;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      cursor: pointer; font-size: .9rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .2s, color .2s, border-color .2s;
+    }
+    .btn-icon:hover        { background: var(--border); color: var(--text); }
+    .btn-icon.delete:hover { background: rgba(192,57,43,.1); color: var(--danger); border-color: var(--danger); }
+
+    /* 添加面板 */
+    .add-panel {
+      margin-top: 40px; border: 1px dashed var(--border);
+      border-radius: var(--radius); padding: 24px; background: var(--surface);
+    }
+    .add-panel h3 {
+      font-size: .85rem; font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .1em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px;
+    }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 160px; }
+    .form-group label { font-size: .75rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    input[type="text"], input[type="url"], select {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 9px 12px; color: var(--text); font-size: .88rem;
+      font-family: inherit; outline: none; transition: border-color .2s; width: 100%;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface); color: var(--text); }
+
+    .btn-add {
+      margin-top: 16px; padding: 10px 28px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 6px;
+      font-family: 'Noto Serif SC', serif; font-size: .9rem; font-weight: 700;
+      cursor: pointer; transition: opacity .2s, transform .15s;
+    }
+    .btn-add:hover        { opacity: .88; transform: translateY(-1px); }
+    .btn-add.local-btn    { background: var(--accent-local); }
+
+    /* 本地路径提示 */
+    .notice {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: rgba(122,90,42,.07); border: 1px solid rgba(122,90,42,.2);
+      border-radius: var(--radius); padding: 14px 16px; margin-bottom: 24px;
+      font-size: .84rem; color: #5c3d10; line-height: 1.65;
+    }
+    .notice-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+    .notice code {
+      font-family: 'JetBrains Mono', monospace; font-size: .82rem;
+      background: rgba(122,90,42,.1); border-radius: 3px; padding: 1px 5px;
+    }
+
+    /* 空状态 */
+    .empty { text-align: center; padding: 40px 0; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: .85rem; }
+
+    /* 弹窗 */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
+      z-index: 100; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .overlay.show { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px; width: 100%; max-width: 460px;
+      transform: scale(.96); transition: transform .2s;
+    }
+    .overlay.show .modal { transform: scale(1); }
+    .modal h3 { font-size: 1.1rem; margin-bottom: 18px; color: var(--accent); }
+    .modal h3.local { color: var(--accent-local); }
+    .modal .form-group { margin-bottom: 14px; }
+    .modal-hint { font-size: .78rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: -8px; margin-bottom: 14px; }
+    .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .btn-cancel {
+      padding: 9px 20px; border-radius: 6px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); cursor: pointer;
+      font-family: inherit; transition: color .2s;
+    }
+    .btn-cancel:hover { color: var(--text); }
+    .btn-save {
+      padding: 9px 20px; border-radius: 6px;
+      background: var(--accent); color: #fff;
+      border: none; font-weight: 700; font-family: inherit; cursor: pointer; transition: opacity .2s;
+    }
+    .btn-save:hover      { opacity: .88; }
+    .btn-save.local-btn  { background: var(--accent-local); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>⌘ 我的导航</h1>
+    <p>// 网址导航 · 本地路径</p>
+  </header>
+
+  <!-- 标签页 -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-web"   onclick="switchTab('web')">
+      <span>🌐</span> 网址导航
+    </button>
+    <button class="tab-btn local"  id="tab-local" onclick="switchTab('local')">
+      <span>📁</span> 本地路径
+    </button>
+  </div>
+
+  <!-- ══ 页面一：网址导航 ══ -->
+  <div class="tab-page active" id="page-web">
+    <div class="toolbar">
+      <button class="btn-tool" onclick="exportData('web')">↑ 导出</button>
+      <button class="btn-tool" onclick="document.getElementById('importFileWeb').click()">↓ 导入</button>
+      <input type="file" id="importFileWeb" accept=".json" style="display:none" onchange="importData(event,'web')">
+    </div>
+    <div id="web-list"></div>
+    <div class="add-panel">
+      <h3>+ 添加新网址</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>名称</label>
+          <input type="text" id="web-new-name" placeholder="例：Claude AI">
+        </div>
+        <div class="form-group">
+          <label>网址</label>
+          <input type="url" id="web-new-url" placeholder="https://...">
+        </div>
+        <div class="form-group" style="min-width:110px;max-width:150px;">
+          <label>分组</label>
+          <select id="web-new-group"></select>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-add" onclick="addItem('web')">添 加</button>
+        <span style="font-size:.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace">
+          新分组：<input type="text" id="web-new-group-name" placeholder="分组名" style="width:100px;padding:5px 8px;font-size:.8rem">
+          <button class="btn-tool" style="margin-left:6px" onclick="addGroup('web')">创建</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 页面二：本地路径 ══ -->
+  <div class="tab-page" id="page-local">
+    <div class="notice">
+      <span class="notice-icon">ℹ️</span>
+      <div>
+        <strong>浏览器兼容说明</strong>——本地路径使用 <code>file:///</code> 协议打开文件夹。<br>
+        ✅ <strong>Firefox / Edge</strong> 支持直接跳转 &nbsp;｜&nbsp; ❌ <strong>Chrome</strong> 默认屏蔽此类跳转<br>
+        路径填写示例：<code>F:\Files\工作</code>（Windows）或 <code>/Users/name/Documents</code>（Mac/Linux），会自动转换，无需手动写 file:///
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn-tool" onclick="exportData('local')">↑ 导出</button>
+      <button class="btn-tool" onclick="document.getElementById('importFileLocal').click()">↓ 导入</button>
+      <input type="file" id="importFileLocal" accept=".json" style="display:none" onchange="importData(event,'local')">
+    </div>
+    <div id="local-list"></div>
+    <div class="add-panel">
+      <h3>+ 添加本地路径</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>名称</label>
+          <input type="text" id="local-new-name" placeholder="例：工作文件夹">
+        </div>
+        <div class="form-group">
+          <label>本地路径</label>
+          <input type="text" id="local-new-path" placeholder="F:\Files 或 /Users/name/Docs">
+        </div>
+        <div class="form-group" style="min-width:110px;max-width:150px;">
+          <label>分组</label>
+          <select id="local-new-group"></select>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-add local-btn" onclick="addItem('local')">添 加</button>
+        <span style="font-size:.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace">
+          新分组：<input type="text" id="local-new-group-name" placeholder="分组名" style="width:100px;padding:5px 8px;font-size:.8rem">
+          <button class="btn-tool" style="margin-left:6px" onclick="addGroup('local')">创建</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 编辑弹窗（网址） -->
+<div class="overlay" id="edit-overlay-web" onclick="closeOverlay(event,'web')">
+  <div class="modal">
+    <h3>编辑网址</h3>
+    <div class="form-group"><label>名称</label><input type="text" id="edit-web-name"></div>
+    <div class="form-group"><label>网址</label><input type="url"  id="edit-web-url"></div>
+    <div class="form-group"><label>分组</label><select id="edit-web-group"></select></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('web')">取消</button>
+      <button class="btn-save"   onclick="saveEdit('web')">保 存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑弹窗（本地路径） -->
+<div class="overlay" id="edit-overlay-local" onclick="closeOverlay(event,'local')">
+  <div class="modal">
+    <h3 class="local">编辑本地路径</h3>
+    <div class="form-group"><label>名称</label><input type="text" id="edit-local-name"></div>
+    <div class="form-group">
+      <label>路径（直接填写即可，无需加 file:///）</label>
+      <input type="text" id="edit-local-url" placeholder="F:\Files 或 /Users/...">
+    </div>
+    <div class="form-group"><label>分组</label><select id="edit-local-group"></select></div>
+    <div class="modal-btns">
+      <button class="btn-cancel"         onclick="closeModal('local')">取消</button>
+      <button class="btn-save local-btn" onclick="saveEdit('local')">保 存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ 数据 ═══════════════════════════════════════════════
+const DEFAULTS = {
+  web: {
+    groups: ["常用工具", "社交媒体", "学习资源"],
+    links: [
+      { id:1, name:"Claude AI",    url:"https://claude.ai/new",         group:"常用工具" },
+      { id:2, name:"ChatGPT",      url:"https://chat.openai.com",       group:"常用工具" },
+      { id:3, name:"GitHub",       url:"https://github.com",            group:"常用工具" },
+      { id:4, name:"YouTube",      url:"https://youtube.com",           group:"社交媒体" },
+      { id:5, name:"MDN Web Docs", url:"https://developer.mozilla.org", group:"学习资源" },
+    ]
+  },
+  local: {
+    groups: ["工作", "个人"],
+    links: [
+      { id:1, name:"示例 - 用户文件夹", url:"file:///C:/Users", group:"个人" },
+    ]
+  }
+};
+
+let states = { web: loadState('web'), local: loadState('local') };
+let editingId = { web: null, local: null };
+
+function loadState(ns) {
+  try {
+    const raw = localStorage.getItem('nav2-' + ns);
+    return raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULTS[ns]));
+  } catch { return JSON.parse(JSON.stringify(DEFAULTS[ns])); }
+}
+function saveState(ns) {
+  localStorage.setItem('nav2-' + ns, JSON.stringify(states[ns]));
+}
+function nextId(ns) {
+  return Math.max(0, ...states[ns].links.map(l => l.id)) + 1;
+}
+
+// ══ 路径转换 ═══════════════════════════════════════════
+function toFileUrl(raw) {
+  raw = raw.trim();
+  if (/^file:\/\//i.test(raw)) return raw;
+  if (/^[a-zA-Z]:[\\\/]/.test(raw)) return 'file:///' + raw.replace(/\\/g, '/');
+  if (raw.startsWith('/'))           return 'file://'  + raw;
+  return 'file:///' + raw.replace(/\\/g, '/');
+}
+function displayPath(url) {
+  // 显示时还原成可读路径
+  let p = url.replace(/^file:\/\/\//,'').replace(/^file:\/\//,'');
+  // Windows 路径：/C:/... → C:\...
+  if (/^[a-zA-Z]:\//.test(p)) p = p.replace(/\//g, '\\');
+  return p;
+}
+
+// ══ 标签页 ════════════════════════════════════════════
+function switchTab(ns) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + ns).classList.add('active');
+  document.getElementById('page-' + ns).classList.add('active');
+}
+
+// ══ 拖拽 ══════════════════════════════════════════════
+let dragSrcId = null;
+function bindDrag(item, ns) {
+  item.querySelector('.drag-handle').addEventListener('mousedown', () => { item.draggable = true; });
+  item.addEventListener('dragstart', e => {
+    dragSrcId = parseInt(item.dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => item.classList.add('dragging'), 0);
+  });
+  item.addEventListener('dragend', () => {
+    item.classList.remove('dragging');
+    document.querySelectorAll('.link-item').forEach(el => el.classList.remove('drag-over'));
+  });
+  item.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (parseInt(item.dataset.id) !== dragSrcId) item.classList.add('drag-over');
+  });
+  item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+  item.addEventListener('drop', e => {
+    e.preventDefault();
+    item.classList.remove('drag-over');
+    const targetId = parseInt(item.dataset.id);
+    if (dragSrcId === targetId) return;
+    const links = states[ns].links;
+    const srcIdx = links.findIndex(l => l.id === dragSrcId);
+    const tgtIdx = links.findIndex(l => l.id === targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    const [moved] = links.splice(srcIdx, 1);
+    const newTgt  = links.findIndex(l => l.id === targetId);
+    links.splice(newTgt + (srcIdx < tgtIdx ? 1 : 0), 0, moved);
+    saveState(ns); render(ns);
+  });
+}
+
+// ══ 分组拖拽 ══════════════════════════════════════════
+let dragSrcGroup = null;
+let dragGroupNs  = null;
+
+function bindGroupDrag(groupEl, ns) {
+  const handle = groupEl.querySelector('.group-drag-handle');
+  handle.addEventListener('mousedown', () => { groupEl.draggable = true; });
+  groupEl.addEventListener('dragstart', e => {
+    dragSrcGroup = groupEl.dataset.group;
+    dragGroupNs  = ns;
+    e.dataTransfer.effectAllowed = 'move';
+    // 阻止冒泡，避免触发链接卡片的拖拽逻辑
+    e.stopPropagation();
+    setTimeout(() => groupEl.classList.add('group-dragging'), 0);
+  });
+  groupEl.addEventListener('dragend', () => {
+    groupEl.draggable = false;
+    groupEl.classList.remove('group-dragging');
+    document.querySelectorAll('.group').forEach(el => el.classList.remove('group-drag-over'));
+    dragSrcGroup = null;
+  });
+  groupEl.addEventListener('dragover', e => {
+    // 只响应分组拖拽，不干扰链接拖拽
+    if (!dragSrcGroup) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (groupEl.dataset.group !== dragSrcGroup) {
+      document.querySelectorAll('.group').forEach(el => el.classList.remove('group-drag-over'));
+      groupEl.classList.add('group-drag-over');
+    }
+  });
+  groupEl.addEventListener('dragleave', e => {
+    // 只在真正离开整个分组块时才移除高亮
+    if (!groupEl.contains(e.relatedTarget)) {
+      groupEl.classList.remove('group-drag-over');
+    }
+  });
+  groupEl.addEventListener('drop', e => {
+    if (!dragSrcGroup) return;
+    e.preventDefault();
+    e.stopPropagation();
+    groupEl.classList.remove('group-drag-over');
+    const targetGroup = groupEl.dataset.group;
+    if (dragSrcGroup === targetGroup || dragGroupNs !== ns) return;
+    const groups = states[ns].groups;
+    const srcIdx = groups.indexOf(dragSrcGroup);
+    const tgtIdx = groups.indexOf(targetGroup);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    groups.splice(srcIdx, 1);
+    const newTgt = groups.indexOf(targetGroup);
+    groups.splice(newTgt + (srcIdx < tgtIdx ? 1 : 0), 0, dragSrcGroup);
+    saveState(ns); render(ns);
+  });
+}
+
+// ══ 渲染 ══════════════════════════════════════════════
+function render(ns) {
+  const container = document.getElementById(ns + '-list');
+  container.innerHTML = '';
+  const isLocal = ns === 'local';
+
+  states[ns].groups.forEach(group => {
+    const items = states[ns].links.filter(l => l.group === group);
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group';
+    groupEl.dataset.group = group;
+    groupEl.innerHTML = `
+      <div class="group-header">
+        <span class="group-drag-handle" title="拖动调整分组顺序">⠿</span>
+        <span class="group-title${isLocal?' local':''}" title="点击可修改分组名"
+          onclick="startRenameGroup(this,'${escAttr(group)}','${ns}')">${escHtml(group)}</span>
+        <div class="group-line"></div>
+        <button class="btn-icon delete" title="删除分组"
+          onclick="removeGroup('${escAttr(group)}','${ns}')">✕</button>
+      </div>
+      <div class="link-list" id="${ns}-list-${escAttr(group)}"></div>
+      ${items.length===0 ? '<div class="empty">暂无条目，在下方添加</div>' : ''}
+    `;
+    container.appendChild(groupEl);
+    bindGroupDrag(groupEl, ns);
+
+    const list = document.getElementById(`${ns}-list-${group}`);
+    items.forEach(link => renderItem(list, link, ns, isLocal));
+  });
+
+  // 未分组
+  const noGroup = states[ns].links.filter(l => !states[ns].groups.includes(l.group));
+  if (noGroup.length) {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group';
+    groupEl.innerHTML = `
+      <div class="group-header">
+        <span class="group-title">未分组</span>
+        <div class="group-line"></div>
+      </div>
+      <div class="link-list" id="${ns}-list-__none__"></div>
+    `;
+    container.appendChild(groupEl);
+    const list = document.getElementById(`${ns}-list-__none__`);
+    noGroup.forEach(link => renderItem(list, link, ns, isLocal));
+  }
+
+  updateGroupSelects(ns);
+}
+
+function renderItem(list, link, ns, isLocal) {
+  const item = document.createElement('div');
+  item.className = 'link-item' + (isLocal ? ' local-item' : '');
+  item.draggable = true;
+  item.dataset.id = link.id;
+  const dispUrl  = isLocal ? displayPath(link.url) : link.url;
+  const linkCls  = isLocal ? ' class="local-link"' : '';
+  item.innerHTML = `
+    <span class="drag-handle" title="拖动排序">⠿</span>
+    <div class="link-dot${isLocal?' local':''}"></div>
+    <div class="link-info">
+      <div class="link-name">${escHtml(link.name)}</div>
+      <div class="link-url"><a href="${escAttr(link.url)}"${linkCls} target="_blank" rel="noopener">${escHtml(dispUrl)}</a></div>
+    </div>
+    <div class="link-actions">
+      <button class="btn-icon" title="编辑" onclick="openEdit(${link.id},'${ns}')">✎</button>
+      <button class="btn-icon delete" title="删除" onclick="removeItem(${link.id},'${ns}')">✕</button>
+    </div>
+  `;
+  bindDrag(item, ns);
+  list.appendChild(item);
+}
+
+function updateGroupSelects(ns) {
+  [`${ns}-new-group`, `edit-${ns}-group`].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const val = sel.value;
+    sel.innerHTML = states[ns].groups.map(g => `<option value="${escAttr(g)}">${escHtml(g)}</option>`).join('');
+    if (val) sel.value = val;
+  });
+}
+
+// ══ CRUD ══════════════════════════════════════════════
+function addItem(ns) {
+  const isLocal = ns === 'local';
+  const name  = document.getElementById(`${ns}-new-name`).value.trim();
+  const raw   = document.getElementById(isLocal ? 'local-new-path' : 'web-new-url').value.trim();
+  const group = document.getElementById(`${ns}-new-group`).value;
+  if (!name || !raw) return alert('请填写名称和' + (isLocal ? '路径' : '网址'));
+
+  let finalUrl = isLocal
+    ? toFileUrl(raw)
+    : (/^https?:\/\//i.test(raw) ? raw : 'https://' + raw);
+
+  states[ns].links.push({ id: nextId(ns), name, url: finalUrl, group });
+  saveState(ns); render(ns);
+  document.getElementById(`${ns}-new-name`).value = '';
+  document.getElementById(isLocal ? 'local-new-path' : 'web-new-url').value = '';
+}
+
+function removeItem(id, ns) {
+  if (!confirm('确认删除？')) return;
+  states[ns].links = states[ns].links.filter(l => l.id !== id);
+  saveState(ns); render(ns);
+}
+
+function addGroup(ns) {
+  const name = document.getElementById(`${ns}-new-group-name`).value.trim();
+  if (!name) return alert('请输入分组名称');
+  if (states[ns].groups.includes(name)) return alert('分组已存在');
+  states[ns].groups.push(name);
+  saveState(ns); render(ns);
+  document.getElementById(`${ns}-new-group-name`).value = '';
+}
+
+function removeGroup(group, ns) {
+  const count = states[ns].links.filter(l => l.group === group).length;
+  const msg = count > 0
+    ? `分组「${group}」下有 ${count} 个条目，删除后将归入未分组。确认？`
+    : `确认删除分组「${group}」？`;
+  if (!confirm(msg)) return;
+  states[ns].groups = states[ns].groups.filter(g => g !== group);
+  saveState(ns); render(ns);
+}
+
+function startRenameGroup(span, oldName, ns) {
+  if (span.querySelector('input')) return;
+  const input = document.createElement('input');
+  input.className = 'group-title-input';
+  input.value = oldName;
+  input.style.width = Math.max(60, oldName.length * 10) + 'px';
+  input.addEventListener('input', () => { input.style.width = Math.max(60, input.value.length * 10) + 'px'; });
+  span.textContent = '';
+  span.appendChild(input);
+  input.focus(); input.select();
+
+  let committed = false;
+  function commit() {
+    if (committed) return; committed = true;
+    const newName = input.value.trim();
+    if (!newName || newName === oldName) { render(ns); return; }
+    if (states[ns].groups.includes(newName)) {
+      alert(`分组「${newName}」已存在，请换一个名称`);
+      committed = false; input.focus(); input.select(); return;
+    }
+    const idx = states[ns].groups.indexOf(oldName);
+    if (idx !== -1) states[ns].groups[idx] = newName;
+    states[ns].links.forEach(l => { if (l.group === oldName) l.group = newName; });
+    saveState(ns); render(ns);
+  }
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { committed = true; render(ns); }
+  });
+  input.addEventListener('blur', commit);
+}
+
+// ══ 编辑弹窗 ══════════════════════════════════════════
+function openEdit(id, ns) {
+  const link = states[ns].links.find(l => l.id === id);
+  if (!link) return;
+  editingId[ns] = id;
+  document.getElementById(`edit-${ns}-name`).value = link.name;
+  document.getElementById(`edit-${ns}-url`).value  = ns === 'local' ? displayPath(link.url) : link.url;
+  updateGroupSelects(ns);
+  document.getElementById(`edit-${ns}-group`).value = link.group;
+  document.getElementById(`edit-overlay-${ns}`).classList.add('show');
+}
+function closeModal(ns) {
+  document.getElementById(`edit-overlay-${ns}`).classList.remove('show');
+  editingId[ns] = null;
+}
+function closeOverlay(e, ns) {
+  if (e.target === document.getElementById(`edit-overlay-${ns}`)) closeModal(ns);
+}
+function saveEdit(ns) {
+  const link = states[ns].links.find(l => l.id === editingId[ns]);
+  if (!link) return;
+  link.name  = document.getElementById(`edit-${ns}-name`).value.trim() || link.name;
+  const raw  = document.getElementById(`edit-${ns}-url`).value.trim();
+  if (raw) link.url = ns === 'local'
+    ? toFileUrl(raw)
+    : (/^https?:\/\//i.test(raw) ? raw : 'https://' + raw);
+  link.group = document.getElementById(`edit-${ns}-group`).value;
+  saveState(ns); render(ns); closeModal(ns);
+}
+
+// ══ 导入 / 导出 ════════════════════════════════════════
+function exportData(ns) {
+  const blob = new Blob([JSON.stringify(states[ns], null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `我的导航_${ns==='web'?'网址':'本地路径'}_备份.json`;
+  a.click();
+}
+function importData(e, ns) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.groups || !data.links) throw new Error();
+      if (!confirm('导入将覆盖当前数据，确认继续？')) return;
+      states[ns] = data;
+      saveState(ns); render(ns);
+    } catch { alert('文件格式不正确'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ══ 工具 ══════════════════════════════════════════════
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) { return escHtml(s); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal('web'); closeModal('local'); }
+});
+
+// ══ 启动 ══════════════════════════════════════════════
+render('web');
+render('local');
+</script>
+</body>
+</html>
